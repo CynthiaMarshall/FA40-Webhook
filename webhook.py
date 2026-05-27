@@ -42,7 +42,7 @@ def _email_html(pdf_type: str, first_name: str) -> str:
     if pdf_type == "enhanced":
         headline = "Your Enhanced Blueprint is attached."
         body = (
-            "You went deeper — and what we found is worth reading carefully. "
+            "You went deeper, and what we found is worth reading carefully. "
             "Your Enhanced Blueprint is built entirely around your assessments, "
             "your strengths, and the patterns we noticed in your answers."
         )
@@ -55,7 +55,7 @@ def _email_html(pdf_type: str, first_name: str) -> str:
     else:
         headline = "Your Freedom Blueprint is attached."
         body = (
-            "It's built from your answers and reflects where you are right now — "
+            "It's built from your answers and reflects where you are right now: "
             "what's already working, where you need support, and your income concepts."
         )
 
