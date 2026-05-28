@@ -494,25 +494,44 @@ def parse_enhanced_blueprint(md):
                     result["synthesis"]["map"].append(plain_text(bullet_match.group(1)))
 
         # ── Strengths ──────────────────────────────────────────────────────────
+        # Markdown format: "Your most dominant X strength is **The Title**. body..."
+        # followed by optional continuation paragraphs, shadow side, then WHAT AI WON'T DO FOR YOU
         if current_section in ("emotional", "spiritual", "creative") and current_strength_section is not None:
-            strength_match = re.match(r'^\*\*([^*]+)\*\*[:\s]+(.*)', line)
-            if strength_match:
-                title = strength_match.group(1).strip()
-                if title.upper() not in ["THE MIRROR", "THE MAP", "WHAT AI WON'T DO FOR YOU"]:
-                    body_lines = [strength_match.group(2).strip()]
-                    j = i + 1
-                    while j < len(lines):
-                        nl = lines[j].strip()
-                        if not nl: break
-                        if re.match(r'^\*\*', nl): break
-                        if re.match(r'^###', nl): break
-                        body_lines.append(nl)
+            if not line:
+                i += 1; continue
+
+            # Skip "WHAT AI WON'T DO FOR YOU" header and its explanation paragraph
+            if "WHAT AI WON" in line_norm and "DO FOR YOU" in line_norm:
+                i += 1
+                while i < len(lines) and lines[i].strip():
+                    i += 1
+                continue
+
+            # Look for strength intro: "...strength is **The Title**..."
+            strength_intro = re.search(r'strength is \*\*([^*]+)\*\*', line, re.IGNORECASE)
+            if strength_intro:
+                title = strength_intro.group(1).strip()
+                body_lines = [plain_text(line)]
+                j = i + 1
+                while j < len(lines):
+                    nl = lines[j].strip()
+                    if not nl:
+                        j += 1; continue
+                    if re.match(r'^###', nl):
+                        break
+                    if "WHAT AI WON" in nl.upper() and "DO FOR YOU" in nl.upper():
+                        # Skip the AI won't do line and its explanation
                         j += 1
-                    current_strength_section.append({
-                        "title": title,
-                        "body": plain_text(" ".join(body_lines))
-                    })
-                    i = j; continue
+                        while j < len(lines) and lines[j].strip():
+                            j += 1
+                        break
+                    body_lines.append(plain_text(nl))
+                    j += 1
+                current_strength_section.append({
+                    "title": title,
+                    "body": " ".join(body_lines)
+                })
+                i = j; continue
 
         # ── Blocking patterns ──────────────────────────────────────────────────
         if current_section == "blocking":
@@ -914,11 +933,6 @@ def build_freedom_blueprint(data, output_path):
 def build_enhanced_blueprint(data, output_path):
     md = data.get("blueprintMarkdown","")
     parsed = parse_enhanced_blueprint(md)
-    print(f"DEBUG strengths: emotional={len(parsed['emotional_strengths'])} spiritual={len(parsed['spiritual_strengths'])} creative={len(parsed['creative_strengths'])}")
-    # Print lines 105-150 to see strengths format
-    for idx, line in enumerate(md.split('\n')):
-        if 104 <= idx <= 150:
-            print(f"DEBUG str line {idx}: {repr(line.strip()[:120])}")
 
     story = []
     story.extend(cover_page(data))
