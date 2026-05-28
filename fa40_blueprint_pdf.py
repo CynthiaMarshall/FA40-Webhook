@@ -338,6 +338,8 @@ def parse_enhanced_blueprint(md):
     """
     Parse real Enhanced Blueprint markdown into structured dict.
     Handles ### headers and **Label:** blocks.
+    The markdown uses ### for all section and concept headings.
+    Known sections are detected by keyword; unknown ### lines are concept titles.
     """
     lines = md.split('\n')
     result = {
@@ -355,10 +357,23 @@ def parse_enhanced_blueprint(md):
 
     def norm(s): return re.sub(r'[#*\s]+', ' ', s).strip().upper()
 
+    # Keywords that identify known section headers (not concept titles)
+    KNOWN_SECTIONS = [
+        "THE MIRROR", "THE MAP", "YOUR EMOTIONAL STRENGTHS",
+        "YOUR SPIRITUAL STRENGTHS", "YOUR CREATIVE STRENGTHS",
+        "WHAT IS QUIETLY BLOCKING YOU", "NEXT STEPS",
+        "YOUR SYNTHESIS", "YOUR INCOME CONCEPTS",
+    ]
+
+    def is_known_section(n):
+        return any(kw in n for kw in KNOWN_SECTIONS)
+
     i = 0
     current_section = "intro"
     current_concept = None
     current_strength_section = None
+    in_mirror = False
+    in_map = False
 
     def flush_concept():
         if current_concept and current_concept.get("title"):
@@ -366,112 +381,122 @@ def parse_enhanced_blueprint(md):
 
     while i < len(lines):
         line = lines[i].strip()
-
-        # Detect section headers
         line_norm = norm(line)
 
-        if "YOUR INCOME CONCEPTS" in line_norm and "VALIDATED" in line_norm:
+        # ── Handle ### section/concept headers ─────────────────────────────────
+        if re.match(r'^###\s+', line):
+            if "THE MIRROR" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "synthesis"; in_mirror = True; in_map = False
+                i += 1; continue
+            if "THE MAP" in line_norm:
+                current_section = "synthesis"; in_mirror = False; in_map = True
+                i += 1; continue
+            if "YOUR EMOTIONAL STRENGTHS" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "emotional"
+                current_strength_section = result["emotional_strengths"]
+                i += 1; continue
+            if "YOUR SPIRITUAL STRENGTHS" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "spiritual"
+                current_strength_section = result["spiritual_strengths"]
+                i += 1; continue
+            if "YOUR CREATIVE STRENGTHS" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "creative"
+                current_strength_section = result["creative_strengths"]
+                i += 1; continue
+            if "WHAT IS QUIETLY BLOCKING YOU" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "blocking"
+                i += 1; continue
+            if "NEXT STEPS" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "next_steps"
+                i += 1; continue
+            if "YOUR INCOME CONCEPTS" in line_norm or "YOUR SYNTHESIS" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "concepts" if "INCOME" in line_norm else "synthesis"
+                i += 1; continue
+            # Unknown ### line = concept title
             flush_concept()
-            current_concept = None
+            current_concept = {"title": line.lstrip('#').strip(), "subsections": {}}
             current_section = "concepts"
             i += 1; continue
 
-        if "YOUR SYNTHESIS" in line_norm:
-            flush_concept()
-            current_concept = None
-            current_section = "synthesis"
-            i += 1; continue
-
-        if "YOUR EMOTIONAL STRENGTHS" in line_norm:
+        # ── Old-style section detection (non-### format, fallback) ─────────────
+        if "YOUR INCOME CONCEPTS" in line_norm and "VALIDATED" in line_norm:
+            flush_concept(); current_concept = None
+            current_section = "concepts"; i += 1; continue
+        if "YOUR SYNTHESIS" in line_norm and not is_known_section(line_norm.replace("YOUR SYNTHESIS","")):
+            flush_concept(); current_concept = None
+            current_section = "synthesis"; i += 1; continue
+        if "YOUR EMOTIONAL STRENGTHS" in line_norm and not re.match(r'^###', line):
             current_section = "emotional"
             current_strength_section = result["emotional_strengths"]
             i += 1; continue
-
-        if "YOUR SPIRITUAL STRENGTHS" in line_norm:
+        if "YOUR SPIRITUAL STRENGTHS" in line_norm and not re.match(r'^###', line):
             current_section = "spiritual"
             current_strength_section = result["spiritual_strengths"]
             i += 1; continue
-
-        if "YOUR CREATIVE STRENGTHS" in line_norm:
+        if "YOUR CREATIVE STRENGTHS" in line_norm and not re.match(r'^###', line):
             current_section = "creative"
             current_strength_section = result["creative_strengths"]
             i += 1; continue
+        if "WHAT IS QUIETLY BLOCKING YOU" in line_norm and not re.match(r'^###', line):
+            current_section = "blocking"; i += 1; continue
+        if line_norm == "NEXT STEPS" and not re.match(r'^###', line):
+            current_section = "next_steps"; i += 1; continue
 
-        if "WHAT IS QUIETLY BLOCKING YOU" in line_norm:
-            current_section = "blocking"
-            i += 1; continue
-
-        if "NEXT STEPS" in line_norm:
-            current_section = "next_steps"
-            i += 1; continue
-
-        # Concept subheading: ### ConceptName
-        if current_section == "concepts" and re.match(r'^###\s+', line) and "YOUR INCOME" not in line_norm:
-            flush_concept()
-            current_concept = {"title": line.lstrip('#').strip(), "subsections": {}}
-            i += 1; continue
-
-        # Labeled block within concept: **Label:** text
+        # ── Labeled block within concept: **Label:** text ──────────────────────
         if current_section == "concepts" and current_concept is not None:
             label_match = re.match(r'^\*\*([^*:]+):\*\*\s*(.*)', line)
             if label_match:
                 label = label_match.group(1).strip()
                 content_lines = [label_match.group(2).strip()]
-                # Collect continuation lines — skip blank lines, stop at next label/section
                 j = i + 1
-                consecutive_blanks = 0
                 while j < len(lines):
                     next_line = lines[j].strip()
                     if not next_line:
-                        consecutive_blanks += 1
-                        # Stop only if next non-blank line is a new label or section header
+                        # Look ahead: stop only if next non-blank is a new label or header
                         k = j + 1
                         while k < len(lines) and not lines[k].strip():
                             k += 1
                         if k < len(lines):
                             peek = lines[k].strip()
-                            peek_norm = norm(peek)
                             if (re.match(r'^\*\*[^*:]+:\*\*', peek) or
-                                re.match(r'^###', peek) or
-                                peek_norm in ["YOUR SYNTHESIS", "YOUR EMOTIONAL STRENGTHS",
-                                              "YOUR SPIRITUAL STRENGTHS", "YOUR CREATIVE STRENGTHS",
-                                              "WHAT IS QUIETLY BLOCKING YOU", "NEXT STEPS"]):
+                                re.match(r'^###', peek)):
                                 break
-                        j += 1
-                        continue
-                    consecutive_blanks = 0
+                        j += 1; continue
                     if re.match(r'^\*\*[^*:]+:\*\*', next_line):
                         break
                     if re.match(r'^###', next_line):
-                        break
-                    if norm(next_line) in ["YOUR SYNTHESIS", "YOUR EMOTIONAL STRENGTHS",
-                                           "YOUR SPIRITUAL STRENGTHS", "YOUR CREATIVE STRENGTHS",
-                                           "WHAT IS QUIETLY BLOCKING YOU", "NEXT STEPS"]:
                         break
                     content_lines.append(next_line)
                     j += 1
                 current_concept["subsections"][label] = plain_text(" ".join(content_lines))
                 i = j; continue
 
-        # Synthesis
+        # ── Synthesis ──────────────────────────────────────────────────────────
         if current_section == "synthesis":
             mirror_match = re.match(r'^\*\*THE MIRROR:\*\*\s*(.*)', line)
-            map_match    = re.match(r'^\*\*THE MAP:\*\*', line)
-            bullet_match = re.match(r'^[-*]\s+(.*)', line)
-            if mirror_match:
+            if mirror_match and not result["synthesis"]["mirror"]:
                 result["synthesis"]["mirror"] = plain_text(mirror_match.group(1))
-            elif map_match:
-                pass
-            elif bullet_match and result["synthesis"]["mirror"]:
-                result["synthesis"]["map"].append(plain_text(bullet_match.group(1)))
+                in_mirror = True; in_map = False
+            elif re.match(r'^\*\*THE MAP:\*\*', line):
+                in_mirror = False; in_map = True
+            elif in_mirror and line and not result["synthesis"]["mirror"]:
+                result["synthesis"]["mirror"] = plain_text(line)
+            elif in_map:
+                bullet_match = re.match(r'^[-*\d.]+\s+(.*)', line)
+                if bullet_match:
+                    result["synthesis"]["map"].append(plain_text(bullet_match.group(1)))
 
-        # Strengths sections
+        # ── Strengths ──────────────────────────────────────────────────────────
         if current_section in ("emotional", "spiritual", "creative") and current_strength_section is not None:
             strength_match = re.match(r'^\*\*([^*]+)\*\*[:\s]+(.*)', line)
-            ai_match = re.match(r'^\*\*WHAT AI WON\'?T DO FOR YOU[:\*]*\*\*[:\s]*(.*)', line, re.IGNORECASE)
-            if ai_match:
-                pass  # skip AI won't do section from strengths
-            elif strength_match:
+            if strength_match:
                 title = strength_match.group(1).strip()
                 if title.upper() not in ["THE MIRROR", "THE MAP", "WHAT AI WON'T DO FOR YOU"]:
                     body_lines = [strength_match.group(2).strip()]
@@ -489,7 +514,7 @@ def parse_enhanced_blueprint(md):
                     })
                     i = j; continue
 
-        # Blocking patterns
+        # ── Blocking patterns ──────────────────────────────────────────────────
         if current_section == "blocking":
             block_match = re.match(r'^\*\*([^*]+)\*\*[:\s]+(.*)', line)
             if block_match and "WHAT AI WON'T" not in block_match.group(1).upper():
@@ -508,7 +533,7 @@ def parse_enhanced_blueprint(md):
                 })
                 i = j; continue
 
-        # Next steps
+        # ── Next steps ─────────────────────────────────────────────────────────
         if current_section == "next_steps":
             if line == "[DISCOVERY_CALL_BUTTON]":
                 i += 1; continue
@@ -520,7 +545,7 @@ def parse_enhanced_blueprint(md):
             elif line and result["next_steps"]:
                 result["next_steps_closing"] = plain_text(line)
 
-        # Intro paragraphs (before income concepts)
+        # ── Intro paragraphs ───────────────────────────────────────────────────
         if current_section == "intro" and line and not re.match(r'^###', line) and not re.match(r'^-\s+\[', line):
             result["intro_paragraphs"].append(plain_text(line))
 
