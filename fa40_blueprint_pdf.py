@@ -292,12 +292,33 @@ def cover_page(data):
 
 # ── Shared Closing ────────────────────────────────────────────────────────────
 def closing_block():
-    rows = [
+    closing_lines = [
+        "You showed up for yourself today. That matters more than you know.",
+        "Everything in this Blueprint was built from what you shared, and it reflects something true: "
+        "what you carry is real, it is valuable, and the world needs what only you can give.",
+        "Sit with that. Read this more than once. Let the ideas breathe.",
+        "There is no timeline here. Just a woman who is more ready than she realizes.",
+    ]
+
+    elements = [sp(0.3)]
+    for line in closing_lines:
+        elements.append(Paragraph(line, S["narrative"]))
+        elements.append(sp(0.1))
+
+    elements.append(sp(0.15))
+    elements.append(Paragraph("I'm already rooting for you.", S["narrative"]))
+    elements.append(sp(0.08))
+    elements.append(Paragraph("With belief in what's coming,", S["narrative"]))
+    elements.append(sp(0.12))
+    elements.append(Paragraph("Cynthia", S["section_heading"]))
+    elements.append(sp(0.25))
+
+    cta_rows = [
         [Paragraph("When you are ready to build this, we are ready to help.", S["cta_text"])],
         [sp(0.08)],
         [Paragraph("freedomafter40.com  \u2022  hello@freedomafter40.com", S["cta_url"])],
     ]
-    tbl = Table(rows, colWidths=[6.6*inch])
+    tbl = Table(cta_rows, colWidths=[6.6*inch])
     tbl.setStyle(TableStyle([
         ("ALIGN",        (0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",  (0,0),(-1,-1), 20),
@@ -308,7 +329,8 @@ def closing_block():
         ("BOTTOMPADDING",(0,0),(-1,-2), 0),
         ("LINEABOVE",    (0,0),(-1,0),  1.5, GOLD),
     ]))
-    return KeepTogether([sp(0.2), tbl])
+    elements.append(tbl)
+    return elements
 
 # ── Markdown Parser ───────────────────────────────────────────────────────────
 
@@ -842,7 +864,7 @@ def build_freedom_blueprint(data, output_path):
         for idx, step in enumerate(parsed["action_steps"][1:], 2):
             story.append(action_step(step, idx))
 
-    story.append(closing_block())
+    story.extend(closing_block())
     make_doc(output_path).build(story)
     print(f"Freedom Blueprint PDF: {output_path}")
 
@@ -1021,7 +1043,7 @@ def build_enhanced_blueprint(data, output_path):
             story.append(sp(0.08))
             story.append(Paragraph(parsed["next_steps_closing"], S["narrative"]))
 
-    story.append(closing_block())
+    story.extend(closing_block())
     make_doc(output_path).build(story)
     print(f"Enhanced Blueprint PDF: {output_path}")
 
@@ -1125,7 +1147,7 @@ def build_income_builder(data, output_path):
         ]))
         story.append(KeepTogether([tbl, sp(0.15)]))
 
-    story.append(closing_block())
+    story.extend(closing_block())
     make_doc(output_path).build(story)
     print(f"Income Builder PDF: {output_path}")
 
@@ -1594,7 +1616,7 @@ def build_income_builder_v2(data, output_path):
     if parsed["what_i_notice"]:
         story.extend(what_i_notice_block(parsed["what_i_notice"]))
 
-    story.append(closing_block())
+    story.extend(closing_block())
     make_doc(output_path).build(story)
     print(f"Income Builder PDF: {output_path}")
 
