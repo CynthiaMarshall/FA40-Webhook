@@ -192,7 +192,7 @@ def download_pdf():
     return response
 
 
-@app.options("/download-pdf")
+@app.route("/download-pdf", methods=["OPTIONS"])
 def download_pdf_preflight():
     """Handle CORS preflight for the download endpoint."""
     response = make_response()
