@@ -25,6 +25,14 @@ WEBHOOK_SECRET  = os.environ.get("WEBHOOK_SECRET", "")  # optional gate
 resend.api_key = RESEND_API_KEY
 
 
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
 # ── blueprintType → type mapping ──────────────────────────────────────────────
 BLUEPRINT_TYPE_MAP = {
     "free":     "blueprint",
