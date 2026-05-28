@@ -300,7 +300,10 @@ def closing_block():
         "There is no timeline here. Just a woman who is more ready than she realizes.",
     ]
 
-    elements = [sp(0.55)]
+    elements = [
+        sp(0.25),
+        HRFlowable(width="100%", thickness=0.75, color=GOLD, spaceBefore=0, spaceAfter=14),
+    ]
     for line in closing_lines:
         elements.append(Paragraph(line, S["narrative"]))
         elements.append(sp(0.05))
