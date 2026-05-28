@@ -914,6 +914,11 @@ def build_freedom_blueprint(data, output_path):
 def build_enhanced_blueprint(data, output_path):
     md = data.get("blueprintMarkdown","")
     parsed = parse_enhanced_blueprint(md)
+    print(f"DEBUG strengths: emotional={len(parsed['emotional_strengths'])} spiritual={len(parsed['spiritual_strengths'])} creative={len(parsed['creative_strengths'])}")
+    # Print lines 105-150 to see strengths format
+    for idx, line in enumerate(md.split('\n')):
+        if 104 <= idx <= 150:
+            print(f"DEBUG str line {idx}: {repr(line.strip()[:120])}")
 
     story = []
     story.extend(cover_page(data))
