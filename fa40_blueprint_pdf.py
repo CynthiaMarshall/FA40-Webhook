@@ -888,7 +888,12 @@ def build_freedom_blueprint(data, output_path):
 # ── Builder: Enhanced Blueprint ───────────────────────────────────────────────
 def build_enhanced_blueprint(data, output_path):
     md = data.get("blueprintMarkdown","")
+    print(f"DEBUG enhanced_md length={len(md)}")
+    print(f"DEBUG enhanced_md first 500: {repr(md[:500])}")
     parsed = parse_enhanced_blueprint(md)
+    print(f"DEBUG parsed concepts count={len(parsed['concepts'])}")
+    if parsed["concepts"]:
+        print(f"DEBUG first concept title={parsed['concepts'][0].get('title')} subsections={list(parsed['concepts'][0].get('subsections',{}).keys())}")
 
     story = []
     story.extend(cover_page(data))
