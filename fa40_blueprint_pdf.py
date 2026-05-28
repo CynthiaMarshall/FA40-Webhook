@@ -300,10 +300,10 @@ def closing_block():
         "There is no timeline here. Just a woman who is more ready than she realizes.",
     ]
 
-    elements = [sp(0.3)]
+    elements = [sp(0.55)]
     for line in closing_lines:
         elements.append(Paragraph(line, S["narrative"]))
-        elements.append(sp(0.1))
+        elements.append(sp(0.05))
 
     elements.append(sp(0.15))
     elements.append(Paragraph("I'm already rooting for you.", S["narrative"]))
@@ -982,10 +982,7 @@ def build_enhanced_blueprint(data, output_path):
         ]))
         for idx, concept in enumerate(parsed["concepts"]):
             if idx > 0:
-                story.append(sp(0.15))
-                story.append(HRFlowable(width="100%", thickness=2, color=GOLD,
-                    spaceBefore=4, spaceAfter=4))
-                story.append(sp(0.05))
+                story.append(PageBreak())
             story.extend(concept_card(concept))
             story.append(sp(0.1))
     else:
