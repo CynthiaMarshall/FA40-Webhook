@@ -417,12 +417,29 @@ def parse_enhanced_blueprint(md):
             if label_match:
                 label = label_match.group(1).strip()
                 content_lines = [label_match.group(2).strip()]
-                # Collect continuation lines
+                # Collect continuation lines — skip blank lines, stop at next label/section
                 j = i + 1
+                consecutive_blanks = 0
                 while j < len(lines):
                     next_line = lines[j].strip()
                     if not next_line:
-                        break
+                        consecutive_blanks += 1
+                        # Stop only if next non-blank line is a new label or section header
+                        k = j + 1
+                        while k < len(lines) and not lines[k].strip():
+                            k += 1
+                        if k < len(lines):
+                            peek = lines[k].strip()
+                            peek_norm = norm(peek)
+                            if (re.match(r'^\*\*[^*:]+:\*\*', peek) or
+                                re.match(r'^###', peek) or
+                                peek_norm in ["YOUR SYNTHESIS", "YOUR EMOTIONAL STRENGTHS",
+                                              "YOUR SPIRITUAL STRENGTHS", "YOUR CREATIVE STRENGTHS",
+                                              "WHAT IS QUIETLY BLOCKING YOU", "NEXT STEPS"]):
+                                break
+                        j += 1
+                        continue
+                    consecutive_blanks = 0
                     if re.match(r'^\*\*[^*:]+:\*\*', next_line):
                         break
                     if re.match(r'^###', next_line):
@@ -911,29 +928,30 @@ def build_enhanced_blueprint(data, output_path):
     story.append(sp(0.2))
     story.append(HRFlowable(width="100%", thickness=0.5, color=CARD_BORDER, spaceAfter=0))
 
-    # Income Concepts - use rich conceptValidation if available
-    concept_validations = data.get("conceptValidation", [])
-    if concept_validations:
-        build_with_concept_validation(
-            story, concept_validations,
-            "YOUR INCOME CONCEPTS", "Validated and expanded."
-        )
+    # Income Concepts - prefer parsed enhanced markdown (richest data),
+    # fall back to conceptValidation only if markdown has no concepts
+    if parsed["concepts"]:
+        story.append(KeepTogether([
+            sp(0.1),
+            Paragraph("YOUR INCOME CONCEPTS", S["section_label"]),
+            Paragraph("Validated and expanded.", S["section_heading"]),
+        ]))
+        for idx, concept in enumerate(parsed["concepts"]):
+            if idx > 0:
+                story.append(sp(0.15))
+                story.append(HRFlowable(width="100%", thickness=2, color=GOLD,
+                    spaceBefore=4, spaceAfter=4))
+                story.append(sp(0.05))
+            story.extend(concept_card(concept))
+            story.append(sp(0.1))
     else:
-        # Fallback: parsed Enhanced Blueprint markdown concepts
-        if parsed["concepts"]:
-            story.append(KeepTogether([
-                sp(0.1),
-                Paragraph("YOUR INCOME CONCEPTS", S["section_label"]),
-                Paragraph("Validated and expanded.", S["section_heading"]),
-            ]))
-            for idx, concept in enumerate(parsed["concepts"]):
-                if idx > 0:
-                    story.append(sp(0.15))
-                    story.append(HRFlowable(width="100%", thickness=2, color=GOLD,
-                        spaceBefore=4, spaceAfter=4))
-                    story.append(sp(0.05))
-                story.extend(concept_card(concept))
-                story.append(sp(0.1))
+        # Fallback to conceptValidation data if markdown has no parsed concepts
+        concept_validations = data.get("conceptValidation", [])
+        if concept_validations:
+            build_with_concept_validation(
+                story, concept_validations,
+                "YOUR INCOME CONCEPTS", "Validated and expanded."
+            )
 
     story.append(sp(0.1))
 
