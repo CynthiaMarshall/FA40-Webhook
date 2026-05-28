@@ -889,7 +889,11 @@ def build_freedom_blueprint(data, output_path):
 def build_enhanced_blueprint(data, output_path):
     md = data.get("blueprintMarkdown","")
     print(f"DEBUG enhanced_md length={len(md)}")
-    print(f"DEBUG enhanced_md first 500: {repr(md[:500])}")
+    # Show all lines containing # or key section words
+    for idx, line in enumerate(md.split('\n')):
+        stripped = line.strip()
+        if stripped.startswith('#') or 'INCOME CONCEPT' in stripped.upper() or 'YOUR INCOME' in stripped.upper() or 'VALIDATED' in stripped.upper() or 'PRICING' in stripped.upper() or 'UNFAIR' in stripped.upper():
+            print(f"DEBUG line {idx}: {repr(stripped[:120])}")
     parsed = parse_enhanced_blueprint(md)
     print(f"DEBUG parsed concepts count={len(parsed['concepts'])}")
     if parsed["concepts"]:
