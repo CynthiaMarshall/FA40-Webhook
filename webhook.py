@@ -1,12 +1,14 @@
 """
 Freedom After 40 - Blueprint PDF Webhook Receiver
-Receives JSON from Lovable, generates a PDF, emails it via Resend.
+Receives JSON from Lovable, generates a PDF, emails it via Resend
+or returns it as a direct download.
 """
 
 import os
 import base64
 import logging
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, make_response
+import io
 import resend
 
 from fa40_blueprint_pdf import generate_pdf
@@ -135,6 +137,69 @@ def _pdf_filename(pdf_type: str, first_name: str, last_name: str) -> str:
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.post("/download-pdf")
+def download_pdf():
+    """Generate a PDF and return it as a direct file download."""
+    payload = request.get_json(silent=True)
+    if not payload:
+        return jsonify({"error": "invalid JSON"}), 400
+
+    session_id     = payload.get("sessionId", "unknown")
+    blueprint_type = payload.get("blueprintType", "free")
+    email          = payload.get("email", "").strip()
+    first_name     = payload.get("stripe_first_name", "").strip()
+    last_name      = payload.get("stripe_last_name", "").strip()
+
+    log.info("Download PDF request: session=%s type=%s email=%s", session_id, blueprint_type, email)
+
+    pdf_type = BLUEPRINT_TYPE_MAP.get(blueprint_type, "blueprint")
+
+    data = {
+        **payload,
+        "type":      pdf_type,
+        "sessionId": session_id,
+    }
+
+    pdf_path = None
+    try:
+        pdf_path = generate_pdf(data)
+        log.info("PDF generated for download: %s", pdf_path)
+    except Exception as exc:
+        log.exception("PDF generation failed: %s", exc)
+        return jsonify({"error": "pdf_generation_failed", "detail": str(exc)}), 500
+
+    try:
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+    except Exception as exc:
+        log.exception("Could not read PDF: %s", exc)
+        return jsonify({"error": "pdf_read_failed"}), 500
+    finally:
+        if pdf_path and os.path.exists(pdf_path):
+            try:
+                os.remove(pdf_path)
+            except OSError:
+                pass
+
+    filename = _pdf_filename(pdf_type, first_name, last_name)
+
+    response = make_response(pdf_bytes)
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
+
+
+@app.options("/download-pdf")
+def download_pdf_preflight():
+    """Handle CORS preflight for the download endpoint."""
+    response = make_response()
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
 
 
 @app.post("/webhook")
