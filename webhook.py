@@ -20,6 +20,7 @@ app = Flask(__name__)
 
 RESEND_API_KEY  = os.environ.get("RESEND_API_KEY", "")
 FROM_EMAIL      = os.environ.get("FROM_EMAIL", "Freedom After 40 <hello@freedomafter40.com>")
+ADMIN_EMAIL     = os.environ.get("ADMIN_EMAIL", "hello@freedomafter40.com")
 WEBHOOK_SECRET  = os.environ.get("WEBHOOK_SECRET", "")  # optional gate
 
 resend.api_key = RESEND_API_KEY
@@ -290,6 +291,35 @@ def webhook():
     except Exception as exc:
         log.exception("Resend failed: %s", exc)
         return jsonify({"error": "email_failed", "detail": str(exc)}), 500
+
+    # Admin notification
+    try:
+        admin_subject = f"New {pdf_type.replace('blueprint', 'Freedom Blueprint').title()} completed — {email}"
+        admin_body = f"""
+<html><body style="font-family:Arial,sans-serif;color:#333;">
+<p><strong>A new assessment was completed on FreedomAfter40.com.</strong></p>
+<table style="border-collapse:collapse;">
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Type</td><td><strong>{pdf_type}</strong></td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td>{email}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Name</td><td>{first_name} {last_name}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Session</td><td>{session_id}</td></tr>
+</table>
+<p style="margin-top:16px;">The client's PDF is attached.</p>
+</body></html>
+"""
+        resend.Emails.send({
+            "from":    FROM_EMAIL,
+            "to":      [ADMIN_EMAIL],
+            "subject": admin_subject,
+            "html":    admin_body,
+            "attachments": [{
+                "filename": filename,
+                "content":  list(pdf_bytes),
+            }],
+        })
+        log.info("Admin notification sent to %s", ADMIN_EMAIL)
+    except Exception as exc:
+        log.exception("Admin notification failed (non-fatal): %s", exc)
 
     return jsonify({
         "status":  "ok",
