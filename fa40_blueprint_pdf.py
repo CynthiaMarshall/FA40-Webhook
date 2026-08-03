@@ -971,6 +971,13 @@ def build_enhanced_blueprint(data, output_path):
     story.append(sp(0.2))
     story.append(intro_tbl)
     story.append(sp(0.2))
+
+    # Personalized intro paragraphs from the blueprint markdown
+    if parsed["intro_paragraphs"]:
+        for para in parsed["intro_paragraphs"]:
+            story.append(Paragraph(para, S["narrative"]))
+            story.append(sp(0.08))
+
     story.append(HRFlowable(width="100%", thickness=0.5, color=CARD_BORDER, spaceAfter=0))
 
     # Income Concepts - prefer parsed enhanced markdown (richest data),
