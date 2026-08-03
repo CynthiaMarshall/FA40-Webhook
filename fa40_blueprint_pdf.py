@@ -157,8 +157,8 @@ def plain_text(md_text):
 
 # ── Cover Page ────────────────────────────────────────────────────────────────
 COVER_CONFIG = {
-    "enhanced":  ("YOUR ENHANCED BLUEPRINT",   "This is what we found.",  "A deeper look, built around you.", "Income concepts \u2022 Strengths \u2022 Strategic path"),
-    "blueprint": ("YOUR FREEDOM BLUEPRINT",    "Your skills have",        "market value.",                    "Income concepts \u2022 Viability \u2022 Strategic path"),
+    "enhanced":  ("YOUR FREEDOM BLUEPRINT",    "This is what we found.",  "Built around you.",                "Income concepts \u2022 Strengths \u2022 Strategic path"),
+    "blueprint": ("YOUR FREEDOM BLUEPRINT",    "Your skills have",        "market value.",                    "Income concepts \u2022 Strengths \u2022 Strategic path"),
     "income":    ("YOUR INCOME FREEDOM BUILDER","Your Income",            "Concepts.",                        "Your idea \u2022 Viability \u2022 Pricing \u2022 Audience"),
 }
 
@@ -940,15 +940,13 @@ def build_enhanced_blueprint(data, output_path):
     story = []
     story.extend(cover_page(data))
 
-    # Fix 6: Warm intro card acknowledging her journey and investment
     name = data.get("stripe_first_name","") or data.get("name","")
     first_name = name.split()[0] if name else "you"
     warm_intro = (
-        f"You did not stop at the surface. You completed the assessments, "
-        f"read your Freedom Blueprint, and made the decision to go deeper. "
-        f"That investment in yourself is not a small thing. "
-        f"What follows is built entirely around {first_name} and what your answers revealed. "
-        f"Read it carefully. This is your full picture on paper."
+        f"You showed up and answered honestly. That takes more courage than most people realize. "
+        f"What follows is built entirely from what {first_name} shared — "
+        f"your strengths, your patterns, and where your income freedom is most likely waiting. "
+        f"Read it carefully, more than once. This is your full picture on paper."
     )
     intro_rows = [
         [Paragraph(warm_intro, S["intro_text"])],
