@@ -348,6 +348,7 @@ def parse_enhanced_blueprint(md):
     result = {
         "intro_paragraphs": [],
         "concepts": [],
+        "contribution_pathways": [],
         "synthesis": {"mirror": "", "map": []},
         "emotional_strengths": [],
         "spiritual_strengths": [],
@@ -365,7 +366,7 @@ def parse_enhanced_blueprint(md):
         "THE MIRROR", "THE MAP", "YOUR EMOTIONAL STRENGTHS",
         "YOUR SPIRITUAL STRENGTHS", "YOUR CREATIVE STRENGTHS",
         "WHAT IS QUIETLY BLOCKING YOU", "NEXT STEPS",
-        "YOUR SYNTHESIS", "YOUR INCOME CONCEPTS",
+        "YOUR SYNTHESIS", "YOUR INCOME CONCEPTS", "YOUR CONTRIBUTION PATHWAYS",
     ]
 
     def is_known_section(n):
@@ -380,7 +381,10 @@ def parse_enhanced_blueprint(md):
 
     def flush_concept():
         if current_concept and current_concept.get("title"):
-            result["concepts"].append(current_concept)
+            if current_section == "contribution_pathways":
+                result["contribution_pathways"].append(current_concept)
+            else:
+                result["concepts"].append(current_concept)
 
     while i < len(lines):
         line = lines[i].strip()
@@ -418,14 +422,19 @@ def parse_enhanced_blueprint(md):
                 flush_concept(); current_concept = None
                 current_section = "next_steps"
                 i += 1; continue
+            if "YOUR CONTRIBUTION PATHWAYS" in line_norm:
+                flush_concept(); current_concept = None
+                current_section = "contribution_pathways"
+                i += 1; continue
             if "YOUR INCOME CONCEPTS" in line_norm or "YOUR SYNTHESIS" in line_norm:
                 flush_concept(); current_concept = None
                 current_section = "concepts" if "INCOME" in line_norm else "synthesis"
                 i += 1; continue
-            # Unknown ### line = concept title
+            # Unknown ### line = concept or pathway title
             flush_concept()
             current_concept = {"title": line.lstrip('#').strip(), "subsections": {}}
-            current_section = "concepts"
+            if current_section != "contribution_pathways":
+                current_section = "concepts"
             i += 1; continue
 
         # ── Old-style section detection (non-### format, fallback) ─────────────
@@ -980,13 +989,25 @@ def build_enhanced_blueprint(data, output_path):
 
     story.append(HRFlowable(width="100%", thickness=0.5, color=CARD_BORDER, spaceAfter=0))
 
-    # Income Concepts - prefer parsed enhanced markdown (richest data),
-    # fall back to conceptValidation only if markdown has no concepts
-    if parsed["concepts"]:
+    # Contribution Pathways (non-business branch)
+    if parsed["contribution_pathways"]:
+        story.append(KeepTogether([
+            sp(0.1),
+            Paragraph("YOUR CONTRIBUTION PATHWAYS", S["section_label"]),
+            Paragraph("How your gifts are meant to reach the world.", S["section_heading"]),
+        ]))
+        for idx, pathway in enumerate(parsed["contribution_pathways"]):
+            if idx > 0:
+                story.append(PageBreak())
+            story.extend(concept_card(pathway))
+            story.append(sp(0.1))
+
+    # Income Concepts (business branch) - prefer parsed markdown, fall back to conceptValidation
+    elif parsed["concepts"]:
         story.append(KeepTogether([
             sp(0.1),
             Paragraph("YOUR INCOME CONCEPTS", S["section_label"]),
-            Paragraph("Validated and expanded.", S["section_heading"]),
+            Paragraph("Built from your story.", S["section_heading"]),
         ]))
         for idx, concept in enumerate(parsed["concepts"]):
             if idx > 0:
@@ -994,12 +1015,11 @@ def build_enhanced_blueprint(data, output_path):
             story.extend(concept_card(concept))
             story.append(sp(0.1))
     else:
-        # Fallback to conceptValidation data if markdown has no parsed concepts
         concept_validations = data.get("conceptValidation", [])
         if concept_validations:
             build_with_concept_validation(
                 story, concept_validations,
-                "YOUR INCOME CONCEPTS", "Validated and expanded."
+                "YOUR INCOME CONCEPTS", "Built from your story."
             )
 
     story.append(sp(0.1))
