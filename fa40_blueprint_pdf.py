@@ -951,12 +951,22 @@ def build_enhanced_blueprint(data, output_path):
 
     name = data.get("stripe_first_name","") or data.get("name","")
     first_name = name.split()[0] if name else "you"
-    warm_intro = (
-        f"You showed up and answered honestly. That takes more courage than most people realize. "
-        f"What follows is built entirely from what {first_name} shared — "
-        f"your strengths, your patterns, and where your income freedom is most likely waiting. "
-        f"Read it carefully, more than once. This is your full picture on paper."
-    )
+    business_intent = data.get("businessIntent", "")
+    contribution_path = business_intent in ("Maybe someday, but it's not my focus right now", "No — my contribution isn't about income")
+    if contribution_path:
+        warm_intro = (
+            f"You showed up and answered honestly. That takes more courage than most people realize. "
+            f"What follows is built entirely from what {first_name} shared — "
+            f"your strengths, your patterns, and where your contribution is most likely waiting to be expressed. "
+            f"Read it carefully, more than once. This is your full picture on paper."
+        )
+    else:
+        warm_intro = (
+            f"You showed up and answered honestly. That takes more courage than most people realize. "
+            f"What follows is built entirely from what {first_name} shared — "
+            f"your strengths, your patterns, and where your income freedom is most likely waiting. "
+            f"Read it carefully, more than once. This is your full picture on paper."
+        )
     intro_rows = [
         [Paragraph(warm_intro, S["intro_text"])],
         [sp(0.08)],
