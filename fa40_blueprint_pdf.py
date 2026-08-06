@@ -381,7 +381,10 @@ def parse_enhanced_blueprint(md):
 
     def flush_concept():
         if current_concept and current_concept.get("title"):
-            if current_section == "contribution_pathways":
+            if "_strength_body_lines" in current_concept and current_strength_section is not None:
+                body = " ".join(current_concept["_strength_body_lines"])
+                current_strength_section.append({"title": current_concept["title"], "body": body})
+            elif current_section == "contribution_pathways":
                 result["contribution_pathways"].append(current_concept)
             else:
                 result["concepts"].append(current_concept)
@@ -430,10 +433,12 @@ def parse_enhanced_blueprint(md):
                 flush_concept(); current_concept = None
                 current_section = "concepts" if "INCOME" in line_norm else "synthesis"
                 i += 1; continue
-            # Unknown ### line = concept or pathway title
+            # Unknown ### line = concept, pathway, or strength title
             flush_concept()
             current_concept = {"title": line.lstrip('#').strip(), "subsections": {}}
-            if current_section != "contribution_pathways":
+            if current_section in ("emotional", "spiritual", "creative"):
+                current_concept["_strength_body_lines"] = []
+            elif current_section != "contribution_pathways":
                 current_section = "concepts"
             i += 1; continue
 
@@ -519,7 +524,12 @@ def parse_enhanced_blueprint(md):
                     i += 1
                 continue
 
-            # Look for strength intro: "...strength is **The Title**..."
+            # Accumulate body for ### strength entries (new format)
+            if current_concept is not None and "_strength_body_lines" in current_concept:
+                current_concept["_strength_body_lines"].append(plain_text(line))
+                i += 1; continue
+
+            # Look for strength intro: "...strength is **The Title**..." (legacy format)
             strength_intro = re.search(r'strength is \*\*([^*]+)\*\*', line, re.IGNORECASE)
             if strength_intro:
                 title = strength_intro.group(1).strip()
