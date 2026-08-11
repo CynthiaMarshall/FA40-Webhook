@@ -524,12 +524,39 @@ def parse_enhanced_blueprint(md):
                     i += 1
                 continue
 
-            # Accumulate body for ### strength entries (new format)
+            # Accumulate body for ### / #### strength entries
             if current_concept is not None and "_strength_body_lines" in current_concept:
                 current_concept["_strength_body_lines"].append(plain_text(line))
                 i += 1; continue
 
-            # Look for strength intro: "...strength is **The Title**..." (legacy format)
+            # **Title:** body format (most common Claude output for strengths)
+            bold_title_match = re.match(r'^\*\*([^*:]+)[:\*]\*?\*?\s*(.*)', line)
+            if bold_title_match and "WHAT AI WON" not in bold_title_match.group(1).upper():
+                title = bold_title_match.group(1).strip().rstrip(':')
+                body_lines = [plain_text(bold_title_match.group(2))] if bold_title_match.group(2) else []
+                j = i + 1
+                while j < len(lines):
+                    nl = lines[j].strip()
+                    if not nl:
+                        j += 1; continue
+                    if re.match(r'^#{3,4}', nl):
+                        break
+                    if re.match(r'^\*\*[^*:]+[:\*]', nl):
+                        break
+                    if "WHAT AI WON" in nl.upper() and "DO FOR YOU" in nl.upper():
+                        j += 1
+                        while j < len(lines) and lines[j].strip():
+                            j += 1
+                        break
+                    body_lines.append(plain_text(nl))
+                    j += 1
+                current_strength_section.append({
+                    "title": title,
+                    "body": " ".join(b for b in body_lines if b)
+                })
+                i = j; continue
+
+            # Legacy: "...strength is **The Title**..."
             strength_intro = re.search(r'strength is \*\*([^*]+)\*\*', line, re.IGNORECASE)
             if strength_intro:
                 title = strength_intro.group(1).strip()
@@ -542,7 +569,6 @@ def parse_enhanced_blueprint(md):
                     if re.match(r'^#{3,4}', nl):
                         break
                     if "WHAT AI WON" in nl.upper() and "DO FOR YOU" in nl.upper():
-                        # Skip the AI won't do line and its explanation
                         j += 1
                         while j < len(lines) and lines[j].strip():
                             j += 1
