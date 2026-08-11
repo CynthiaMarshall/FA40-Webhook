@@ -204,6 +204,14 @@ class FullBleedCover(Flowable):
         c.setFillColor(GOLD)
         c.rect(0, H - band_h - 4, W, 4, fill=1, stroke=0)
 
+        # Override subtitle for contribution-path users
+        contribution_intents = (
+            "Maybe someday, but it's not my focus right now",
+            "No — my contribution isn't about income",
+        )
+        if t == "enhanced" and self.data.get("businessIntent") in contribution_intents:
+            subtitle = "Contribution pathways • Strengths • Strategic path"
+
         # ── Text in plum band ──
         y = H - 0.65 * inch
 
@@ -989,6 +997,12 @@ def build_enhanced_blueprint(data, output_path):
     first_name = name.split()[0] if name else "you"
     business_intent = data.get("businessIntent", "")
     contribution_path = business_intent in ("Maybe someday, but it's not my focus right now", "No — my contribution isn't about income")
+
+    # If Claude labeled them "YOUR INCOME CONCEPTS" but user is on contribution path,
+    # move parsed concepts into contribution_pathways so they render with the right label.
+    if contribution_path and parsed["concepts"] and not parsed["contribution_pathways"]:
+        parsed["contribution_pathways"] = parsed["concepts"]
+        parsed["concepts"] = []
     if contribution_path:
         warm_intro = (
             f"You showed up and answered honestly. That takes more courage than most people realize. "
@@ -1142,7 +1156,7 @@ def build_enhanced_blueprint(data, output_path):
             story.append(blocking_card(b["title"], b["body"]))
 
     # Next Steps
-    if parsed["next_steps"]:
+    if parsed["next_steps"] or parsed["next_steps_intro"] or parsed["next_steps_closing"]:
         story.append(KeepTogether([
             section_anchor("YOUR NEXT STEPS", "Where to begin."),
             sp(0.1),
