@@ -393,8 +393,8 @@ def parse_enhanced_blueprint(md):
         line = lines[i].strip()
         line_norm = norm(line)
 
-        # ── Handle ### section/concept headers ─────────────────────────────────
-        if re.match(r'^###\s+', line):
+        # ── Handle ### / #### section/concept headers ──────────────────────────
+        if re.match(r'^#{3,4}\s+', line):
             if "THE MIRROR" in line_norm:
                 flush_concept(); current_concept = None
                 current_section = "synthesis"; in_mirror = True; in_map = False
@@ -483,12 +483,12 @@ def parse_enhanced_blueprint(md):
                         if k < len(lines):
                             peek = lines[k].strip()
                             if (re.match(r'^\*\*[^*:]+:\*\*', peek) or
-                                re.match(r'^###', peek)):
+                                re.match(r'^#{3,4}', peek)):
                                 break
                         j += 1; continue
                     if re.match(r'^\*\*[^*:]+:\*\*', next_line):
                         break
-                    if re.match(r'^###', next_line):
+                    if re.match(r'^#{3,4}', next_line):
                         break
                     content_lines.append(next_line)
                     j += 1
@@ -539,7 +539,7 @@ def parse_enhanced_blueprint(md):
                     nl = lines[j].strip()
                     if not nl:
                         j += 1; continue
-                    if re.match(r'^###', nl):
+                    if re.match(r'^#{3,4}', nl):
                         break
                     if "WHAT AI WON" in nl.upper() and "DO FOR YOU" in nl.upper():
                         # Skip the AI won't do line and its explanation
