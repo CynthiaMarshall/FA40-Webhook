@@ -15,6 +15,8 @@ Entry point:
 """
 
 import re, os
+from datetime import datetime
+from xml.sax.saxutils import escape as _xml_escape
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -24,11 +26,25 @@ from reportlab.lib.units import inch
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    SimpleDocTemplate, Paragraph as _RLParagraph, Spacer, Table, TableStyle,
     HRFlowable, KeepTogether, PageBreak, Flowable, NextPageTemplate
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
+
+def Paragraph(text, *args, **kwargs):
+    """Wrapper around reportlab's Paragraph that escapes raw XML metacharacters.
+
+    Paragraph text is parsed as mini-XML/HTML markup, so any dynamic content
+    (assessment answers, concept names, business ideas) containing an
+    unescaped '&', '<', or '>' raises a parser error and kills PDF
+    generation entirely. Nothing here intentionally relies on markup tags or
+    entities, so escaping unconditionally is safe.
+    """
+    if isinstance(text, str):
+        text = _xml_escape(text)
+    return _RLParagraph(text, *args, **kwargs)
 
 # ── Brand Colors ──────────────────────────────────────────────────────────────
 PLUM        = colors.HexColor("#3D1F3D")
@@ -278,7 +294,7 @@ class FullBleedCover(Flowable):
         # Date line
         c.setFont(_font("Poppins-Light"), 9)
         c.setFillColor(MUTED)
-        c.drawString(pad_l, det_y, "May 2026  \u2022  freedomafter40.com")
+        c.drawString(pad_l, det_y, f"{datetime.now().strftime('%B %Y')}  \u2022  freedomafter40.com")
 
         # Footer rule
         c.setStrokeColor(colors.HexColor("#E0D5D8"))

@@ -129,6 +129,75 @@ def _email_html(pdf_type: str, first_name: str) -> str:
 """
 
 
+def _send_admin_success(source: str, pdf_type: str, email: str, first_name: str,
+                         last_name: str, session_id: str, pdf_bytes: bytes, filename: str) -> None:
+    """Best-effort admin notification that a client received their PDF. Never
+    raises — a failure here must not affect the response already sent to the client."""
+    if not RESEND_API_KEY:
+        log.warning("RESEND_API_KEY not set — skipping admin notification")
+        return
+    try:
+        subject = f"New {pdf_type.replace('blueprint', 'Freedom Blueprint').title()} completed — {email}"
+        body = f"""
+<html><body style="font-family:Arial,sans-serif;color:#333;">
+<p><strong>A new assessment was completed on FreedomAfter40.com.</strong></p>
+<table style="border-collapse:collapse;">
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Type</td><td><strong>{pdf_type}</strong></td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td>{email}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Name</td><td>{first_name} {last_name}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Session</td><td>{session_id}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Source</td><td>{source}</td></tr>
+</table>
+<p style="margin-top:16px;">The client's PDF is attached.</p>
+</body></html>
+"""
+        resend.Emails.send({
+            "from":    FROM_EMAIL,
+            "to":      [ADMIN_EMAIL],
+            "subject": subject,
+            "html":    body,
+            "attachments": [{
+                "filename": filename,
+                "content":  list(pdf_bytes),
+            }],
+        })
+        log.info("Admin notification sent to %s (source=%s)", ADMIN_EMAIL, source)
+    except Exception as exc:
+        log.exception("Admin notification failed (non-fatal): %s", exc)
+
+
+def _send_admin_failure(source: str, blueprint_type: str, email: str, first_name: str,
+                         last_name: str, session_id: str, error: str) -> None:
+    """Best-effort admin alert that PDF generation failed, so a failure is never silent."""
+    if not RESEND_API_KEY:
+        log.warning("RESEND_API_KEY not set — skipping admin failure alert")
+        return
+    try:
+        subject = f"FA40 PDF generation FAILED — {email or 'unknown email'}"
+        body = f"""
+<html><body style="font-family:Arial,sans-serif;color:#333;">
+<p><strong>A PDF generation attempt failed on FreedomAfter40.com.</strong></p>
+<table style="border-collapse:collapse;">
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Endpoint</td><td>{source}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Blueprint type</td><td>{blueprint_type}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td>{email}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Name</td><td>{first_name} {last_name}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Session</td><td>{session_id}</td></tr>
+<tr><td style="padding:4px 12px 4px 0;color:#666;">Error</td><td><pre style="white-space:pre-wrap;">{error}</pre></td></tr>
+</table>
+</body></html>
+"""
+        resend.Emails.send({
+            "from":    FROM_EMAIL,
+            "to":      [ADMIN_EMAIL],
+            "subject": subject,
+            "html":    body,
+        })
+        log.info("Admin failure alert sent to %s (source=%s)", ADMIN_EMAIL, source)
+    except Exception as exc:
+        log.exception("Admin failure alert failed (non-fatal): %s", exc)
+
+
 def _pdf_filename(pdf_type: str, first_name: str, last_name: str) -> str:
     parts = ["FA40"]
     if pdf_type == "enhanced":
@@ -177,6 +246,7 @@ def download_pdf():
         log.info("PDF generated for download: %s", pdf_path)
     except Exception as exc:
         log.exception("PDF generation failed: %s", exc)
+        _send_admin_failure("/download-pdf", blueprint_type, email, first_name, last_name, session_id, str(exc))
         return jsonify({"error": "pdf_generation_failed", "detail": str(exc)}), 500
 
     try:
@@ -184,6 +254,7 @@ def download_pdf():
             pdf_bytes = f.read()
     except Exception as exc:
         log.exception("Could not read PDF: %s", exc)
+        _send_admin_failure("/download-pdf", blueprint_type, email, first_name, last_name, session_id, str(exc))
         return jsonify({"error": "pdf_read_failed"}), 500
     finally:
         if pdf_path and os.path.exists(pdf_path):
@@ -193,6 +264,8 @@ def download_pdf():
                 pass
 
     filename = _pdf_filename(pdf_type, first_name, last_name)
+
+    _send_admin_success("/download-pdf", pdf_type, email, first_name, last_name, session_id, pdf_bytes, filename)
 
     response = make_response(pdf_bytes)
     response.headers["Content-Type"] = "application/pdf"
@@ -251,6 +324,7 @@ def webhook():
         log.info("PDF generated: %s", pdf_path)
     except Exception as exc:
         log.exception("PDF generation failed: %s", exc)
+        _send_admin_failure("/webhook", blueprint_type, email, first_name, last_name, session_id, str(exc))
         return jsonify({"error": "pdf_generation_failed", "detail": str(exc)}), 500
 
     # Read and encode PDF
@@ -259,6 +333,7 @@ def webhook():
             pdf_bytes = f.read()
     except Exception as exc:
         log.exception("Could not read PDF: %s", exc)
+        _send_admin_failure("/webhook", blueprint_type, email, first_name, last_name, session_id, str(exc))
         return jsonify({"error": "pdf_read_failed"}), 500
     finally:
         if pdf_path and os.path.exists(pdf_path):
@@ -293,33 +368,7 @@ def webhook():
         return jsonify({"error": "email_failed", "detail": str(exc)}), 500
 
     # Admin notification
-    try:
-        admin_subject = f"New {pdf_type.replace('blueprint', 'Freedom Blueprint').title()} completed — {email}"
-        admin_body = f"""
-<html><body style="font-family:Arial,sans-serif;color:#333;">
-<p><strong>A new assessment was completed on FreedomAfter40.com.</strong></p>
-<table style="border-collapse:collapse;">
-<tr><td style="padding:4px 12px 4px 0;color:#666;">Type</td><td><strong>{pdf_type}</strong></td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#666;">Email</td><td>{email}</td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#666;">Name</td><td>{first_name} {last_name}</td></tr>
-<tr><td style="padding:4px 12px 4px 0;color:#666;">Session</td><td>{session_id}</td></tr>
-</table>
-<p style="margin-top:16px;">The client's PDF is attached.</p>
-</body></html>
-"""
-        resend.Emails.send({
-            "from":    FROM_EMAIL,
-            "to":      [ADMIN_EMAIL],
-            "subject": admin_subject,
-            "html":    admin_body,
-            "attachments": [{
-                "filename": filename,
-                "content":  list(pdf_bytes),
-            }],
-        })
-        log.info("Admin notification sent to %s", ADMIN_EMAIL)
-    except Exception as exc:
-        log.exception("Admin notification failed (non-fatal): %s", exc)
+    _send_admin_success("/webhook", pdf_type, email, first_name, last_name, session_id, pdf_bytes, filename)
 
     return jsonify({
         "status":  "ok",
