@@ -15,6 +15,7 @@ Entry point:
 """
 
 import re, os
+from datetime import datetime
 from xml.sax.saxutils import escape as _xml_escape
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -293,7 +294,7 @@ class FullBleedCover(Flowable):
         # Date line
         c.setFont(_font("Poppins-Light"), 9)
         c.setFillColor(MUTED)
-        c.drawString(pad_l, det_y, "May 2026  \u2022  freedomafter40.com")
+        c.drawString(pad_l, det_y, f"{datetime.now().strftime('%B %Y')}  \u2022  freedomafter40.com")
 
         # Footer rule
         c.setStrokeColor(colors.HexColor("#E0D5D8"))
